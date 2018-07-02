@@ -62,6 +62,7 @@ void setup() {
   printDirectory(root, 0);
 
   Serial.println("done!");
+  pinMode(buttonPin, INPUT_PULLUP);
 }
 
 void playFile(const char *filename)
@@ -77,14 +78,14 @@ void playFile(const char *filename)
   delay(5);
 
   // Simply wait for the file to finish playing.
-  while (playWav1.isPlaying()) {
+//  while (playWav1.isPlaying()) {
     // uncomment these lines if you audio shield
     // has the optional volume pot soldered
     //float vol = analogRead(15);
     //vol = vol / 1024;
     // sgtl5000_1.volume(vol);
-  }
-  pinMode(buttonPin, INPUT_PULLUP);
+//  }
+  
   delay(1000);
 }
 
@@ -152,11 +153,10 @@ void printDirectory(File dir, int numTabs) {
           }
           
           Serial.print("stored file name: ");
-          Serial.print(fileNameList[numTracks]);
+          Serial.print(fList[numTracks]);
           Serial.print(" at loc: ");
           Serial.print(numTracks);
-          Serial.print(" whole ");
-          Serial.println( fList[numTracks] );
+          
           numTracks++;
         }
       }
