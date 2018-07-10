@@ -1,8 +1,11 @@
-
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+// Listening station
+// KGNU 40th anniversary at the Museum of Boulder
 //
-//   1: Digital I2S - Normally used with the audio shield:
-//         http://www.pjrc.com/store/teensy3_audio.html
-//
+// by Jiffer Harriman
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 
 
 #include <Audio.h>
@@ -25,15 +28,29 @@ AudioControlSGTL5000     sgtl5000_1;
 #define SDCARD_MOSI_PIN  7
 #define SDCARD_SCK_PIN   14
 
-int buttonPin = 32;
-boolean okToPlay = false;
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+// GLOBAL VARIABLES
+//////////////////////////////////////////////////////////////////////////////
+const int numButtons = 8;
+int buttonPins[numButtons] = {32, 30, 28, 28, 28, 28, 28, 28};
+int ledPins[numButtons] = {31, 29, 27, 27, 27, 27, 27, 27};
+
 File root;
 
-char fileNameList[100][16]; // sets a max of 100 tracks
+char fileNameList[100][16]; // currently a max of 100 tracks
 char dirNameList[100][16];
-char fList[8][100][32]; // file location including directory name and filename.wav
-int numTracks[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-int currentTrack[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+char fList[numButtons][100][32]; // file location including directory name and filename.wav
+int numTracks[numButtons] = {0, 0, 0, 0, 0, 0, 0, 0};
+int currentTrack[numButtons] = {0, 0, 0, 0, 0, 0, 0, 0};
+//////////////////////////////////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+// Setup
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 void setup() {
   Serial.begin(9600);
 
@@ -60,14 +77,57 @@ void setup() {
 
   readDirectory(root, 0, -1);
 
-  Serial.println("all done with setup!");
+  Serial.println("all done reading directories!");
+  for (int i = 0; i < 8; i++) {
+    Serial.print("tracks in folder ");
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.println(numTracks[i]);
+  }
 
   // configure pins
-  pinMode(buttonPin, INPUT_PULLUP);
+  for (int i = 0; i < 8; i++) {
+    pinMode(buttonPins[i], INPUT_PULLUP);
+    pinMode(ledPins[i], OUTPUT);
+    digitalWrite(ledPins[i], HIGH);
+  }
 }
 
-void playFile(const char *filename)
+
+
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+// Main loop
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+void loop() {
+  int buttonPressed = -1;
+  for (int i = 0; i < numButtons; i++) {
+    if (digitalRead(buttonPins[i]) == 0) {
+      buttonPressed = i;
+      digitalWrite(ledPins[i], LOW);
+    }
+  }
+  if (buttonPressed != -1) {
+
+    Serial.print("button : ");
+    Serial.print(buttonPressed);
+    Serial.print("playing track: ");
+    Serial.println(currentTrack[buttonPressed]); // track number
+
+    playFile(buttonPressed);
+
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+// playFile()
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+void playFile(int buttonPressed)
 {
+  const char *filename = fList[buttonPressed][currentTrack[buttonPressed]];
   Serial.print("Playing file: ");
   Serial.println(filename);
 
@@ -87,39 +147,52 @@ void playFile(const char *filename)
   //    // sgtl5000_1.volume(vol);
   //  }
 
-  // how long to wait until buttons become active again:
-  delay(1000);
-}
+  // how long to wait until all lights are out
+  delay(100);
 
-
-void loop() {
-
-  if (digitalRead(buttonPin) == 0) {
-    int folder = 0;
-    Serial.print("playing track: ");
-    Serial.println(currentTrack[folder]); // track number
-
-    playFile(fList[folder][currentTrack[folder]]);
-    currentTrack[folder]++;
-    currentTrack[folder] %= numTracks[folder];
-    delay(500);
+  for (int i = 0; i < numButtons; i++) {
+    digitalWrite(ledPins[i], LOW);
   }
+  delay(100);
+  for(int i = 0; i < 2000; i ++){
+    digitalWrite(ledPins[buttonPressed], HIGH);
+    delay(1);
+    digitalWrite(ledPins[buttonPressed], LOW);
+    delay(1);
+  }
+
+  for (int i = 0; i < numButtons; i++) {
+    digitalWrite(ledPins[i], HIGH);
+  }
+  currentTrack[buttonPressed]++;
+  currentTrack[buttonPressed] %= numTracks[buttonPressed];
 }
 
+
+
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//
+// readDirectory()
+//
+//
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 void readDirectory(File dir, int numTabs, int currentPassIn) {
   int currentFolder = currentPassIn;
   char* entryName;
-  char* lastDirName;// = (char*)malloc(32*sizeof(char));
+  char* lastDirName;// = (char*)malloc(32*sizeof(char));  // unitialized perhaps because it may be called before entry.name()?
   while (true) {
 
     File entry =  dir.openNextFile();
     if (! entry) {
       // no more files
       if (currentFolder != -1) {
-        Serial.print("found this many valid .wav files: ");
-        Serial.println(numTracks[currentFolder]);
+        Serial.print("found " );
+        Serial.print(numTracks[currentFolder]);
+        Serial.print(" valid .wav files in currentFolder: ");
+        Serial.println(currentFolder);
       }
-      //      free(lastDirName);
       break;
     }
     for (uint8_t i = 0; i < numTabs; i++) {
@@ -138,27 +211,25 @@ void readDirectory(File dir, int numTabs, int currentPassIn) {
           startingAt = i;
         }
       }
-      if (startingAt > 0) {
-        if (entryName[startingAt + 1] == 'W' && entryName[startingAt + 2] == 'A' && entryName[startingAt + 3] == 'V') {
-          //          char* dirName;
-          // put it in an array!
-          for (int i = 0; i < 16; i++) {
-            dirNameList[numTracks[currentFolder]][i] = lastDirName[i];
-          }
-          for (int i = 0; i < 16; i++) {
-            fileNameList[numTracks[currentFolder]][i] = entryName[i];
 
-          }
+      Serial.print(" cf is : ");
+      Serial.println(currentFolder);
+      if (currentFolder != -1) {
+        if (startingAt > 0) {
+          if (entryName[startingAt + 1] == 'W' && entryName[startingAt + 2] == 'A' && entryName[startingAt + 3] == 'V') {
+            // put it in an array!
+            for (int i = 0; i < 16; i++) {
+              dirNameList[numTracks[currentFolder]][i] = lastDirName[i];
+            }
+            for (int i = 0; i < 16; i++) {
+              fileNameList[numTracks[currentFolder]][i] = entryName[i];
 
+            }
 
-
-          Serial.print(" cf is : ");
-          Serial.println(currentFolder);
-          if (currentFolder != -1) {
-            Serial.println("current folder is aewersomes");
             char* dirName = strcat(strcat(dirNameList[numTracks[currentFolder]], "/"), fileNameList[numTracks[currentFolder]]);
             for (int i = 0; i < 32; i++) {
               fList[currentFolder][numTracks[currentFolder]][i] = dirName[i]; // todo! use folder name
+
             }
 
             Serial.print("stored file name: ");
@@ -168,12 +239,15 @@ void readDirectory(File dir, int numTabs, int currentPassIn) {
             Serial.print(" whole ");
             Serial.println( fList[currentFolder][numTracks[currentFolder]] );
             numTracks[currentFolder]++;
+
           }
         }
       }
       Serial.print(entry.name());
 
       if (entry.isDirectory()) {
+        Serial.println("/");
+
         lastDirName = entry.name();
         currentFolder = -1;
         if (lastDirName[0] == 'A' ) {
@@ -198,8 +272,7 @@ void readDirectory(File dir, int numTabs, int currentPassIn) {
           currentFolder = 7;
         }
 
-
-        Serial.println("/");
+        // call back into itself
         readDirectory(entry, numTabs + 1, currentFolder);
       } else {
         // files have sizes, directories do not
@@ -207,7 +280,6 @@ void readDirectory(File dir, int numTabs, int currentPassIn) {
         Serial.println(entry.size(), DEC);
       }
     }
-
     entry.close();
   }
 }
