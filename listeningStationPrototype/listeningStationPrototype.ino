@@ -33,8 +33,8 @@ AudioControlSGTL5000     sgtl5000_1;
 // GLOBAL VARIABLES
 //////////////////////////////////////////////////////////////////////////////
 const int numButtons = 8;
-int buttonPins[numButtons] = {32, 30, 28, 28, 28, 28, 28, 28};
-int ledPins[numButtons] = {31, 29, 27, 27, 27, 27, 27, 27};
+int buttonPins[numButtons] = {33, 34, 38, 28, 28, 28, 28, 28};
+int ledPins[numButtons] = {35, 36, 37, 27, 27, 27, 27, 27};
 
 File root;
 
